@@ -8,7 +8,7 @@ SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_ANON_KEY"]
 TABLE_NAME = "master_contacts"
 
-# --- AUTH ---
+# --- USER CREDENTIALS ---
 users = {
     "usernames": {
         "jeff": {
@@ -22,54 +22,62 @@ users = {
     }
 }
 
-
+# --- AUTHENTICATOR ---
 authenticator = Authenticate(
     users,
-    "lead_filter_cookie",
-    "some_signature_key",
+    "my_cookie_name",
+    "my_signature_key",
     cookie_expiry_days=1
 )
 
-name, auth_status, username = authenticator.login("Login", "main")
+name, authentication_status, username = authenticator.login("Login", "main")
 
-# --- MAIN ---
-if auth_status:
+# --- LOGGED IN ---
+if authentication_status:
     st.sidebar.success(f"Welcome, {name}!")
     authenticator.logout("Logout", "sidebar")
 
-    @st.cache_data(show_spinner="Loading leads...")
+    @st.cache_data(show_spinner="Loading data...")
     def load_data():
-        client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
         all_rows = []
+        batch_size = 1000
         offset = 0
+
         while True:
-            res = client.table(TABLE_NAME).select("*").range(offset, offset + 999).execute()
-            if not res.data:
+            response = supabase.table(TABLE_NAME).select("*").range(offset, offset + batch_size - 1).execute()
+            batch = response.data
+            if not batch:
                 break
-            all_rows.extend(res.data)
-            offset += 1000
+            all_rows.extend(batch)
+            offset += batch_size
+
         return pd.DataFrame(all_rows)
 
-    st.title("🔍 Lead Filter by Location or Keyword")
-    query = st.text_input("Search keyword or location").strip().lower()
+    st.title("🔎 Lead Filter by Location or Keyword")
+    search_term = st.text_input("Enter a location or keyword").strip().lower()
     df = load_data()
 
-    if query:
-        filtered = df[
-            df['location'].astype(str).str.lower().str.contains(query, na=False) |
-            df['route_inquired'].astype(str).str.lower().str.contains(query, na=False) |
-            df['tags'].astype(str).str.lower().str.contains(query, na=False) |
-            df['state'].astype(str).str.lower().str.contains(query, na=False) |
-            df['state1'].astype(str).str.lower().str.contains(query, na=False) |
-            df['state2'].astype(str).str.lower().str.contains(query, na=False)
+    if search_term:
+        filtered_df = df[
+            df['location'].astype(str).str.lower().str.contains(search_term, na=False) |
+            df['route_inquired'].astype(str).str.lower().str.contains(search_term, na=False) |
+            df['tags'].astype(str).str.lower().str.contains(search_term, na=False) |
+            df['state'].astype(str).str.lower().str.contains(search_term, na=False) |
+            df['state1'].astype(str).str.lower().str.contains(search_term, na=False) |
+            df['state2'].astype(str).str.lower().str.contains(search_term, na=False)
         ]
-        st.write(f"✅ {len(filtered)} results")
-        st.dataframe(filtered)
-        st.download_button("📥 Download CSV", data=filtered.to_csv(index=False), file_name="filtered_leads.csv", mime="text/csv")
-    else:
-        st.info("Start typing to filter the lead database.")
+        st.write(f"### ✅ Found {len(filtered_df)} matching contacts")
+        st.dataframe(filtered_df)
 
-elif auth_status is False:
+        csv = filtered_df.to_csv(index=False).encode("utf-8")
+        st.download_button("📥 Download Filtered CSV", data=csv, file_name="filtered_leads.csv", mime="text/csv")
+    else:
+        st.write("Enter a keyword to begin filtering the lead database.")
+
+# --- LOGIN ERRORS ---
+elif authentication_status is False:
     st.error("Login failed. Please check your username and password.")
-elif auth_status is None:
+elif authentication_status is None:
     st.warning("Please enter your credentials.")
