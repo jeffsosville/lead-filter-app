@@ -1,43 +1,83 @@
 import streamlit as st
 import pandas as pd
-from supabase import create_client
+from supabase import create_client, Client
+from streamlit_authenticator import Authenticate
 
+# --- CONFIG ---
 SUPABASE_URL = "https://jrplwchamgzjmjmmkpoj.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpycGx3Y2hhbWd6am1qbW1rcG9qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDYwMTgzOSwiZXhwIjoyMDY2MTc3ODM5fQ.jWQMWrd1TAqmfT9vKqKzNdapdFblxW_t5Yp25E3LyZ0"  # Use anon key for frontend
+SUPABASE_KEY = st.secrets["eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpycGx3Y2hhbWd6am1qbW1rcG9qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA2MDE4MzksImV4cCI6MjA2NjE3NzgzOX0.2cDqlLvZmcCNsd4-o01fXQd3f5wNZWy6lhDKLx82mtg"]  # safer than hardcoding
 TABLE_NAME = "master_contacts"
 
-@st.cache_data(ttl=60)  # Re-fetch every 60 seconds
-@st.cache_data(show_spinner="Loading full dataset...")
-def load_data():
-    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# --- AUTH CONFIG ---
+users = {
+    "usernames": {
+        "jeff": {
+            "name": "Jeff Sosville",
+            "password": st.secrets["AUTH_PASSWORD"]  # store securely
+        },
+        "team": {
+            "name": "Team Member",
+            "password": st.secrets["AUTH_PASSWORD_TEAM"]
+        }
+    }
+}
 
-    all_rows = []
-    batch_size = 1000
-    offset = 0
+authenticator = Authenticate(
+    users,
+    "some_cookie_name",
+    "some_signature_key",
+    cookie_expiry_days=1
+)
 
-    while True:
-        response = supabase.table(TABLE_NAME)\
-            .select("*")\
-            .range(offset, offset + batch_size - 1)\
-            .execute()
+name, authentication_status, username = authenticator.login("Login", "main")
 
-        if not response.data:
-            break
+# --- IF LOGGED IN ---
+if authentication_status:
+    st.sidebar.success(f"Welcome, {name}!")
+    authenticator.logout("Logout", "sidebar")
 
-        all_rows.extend(response.data)
-        offset += batch_size
+    # --- CONNECT + LOAD ---
+    @st.cache_data(show_spinner="Loading full dataset...")
+    def load_data():
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-    return pd.DataFrame(all_rows)
+        all_rows = []
+        batch_size = 1000
+        offset = 0
 
+        while True:
+            response = supabase.table(TABLE_NAME).select("*").range(offset, offset + batch_size - 1).execute()
+            batch = response.data
+            if not batch:
+                break
+            all_rows.extend(batch)
+            offset += batch_size
 
-st.title("🔎 ATM Lead Search")
-search_term = st.text_input("Search by keyword, location, or route").strip().lower()
-df = load_data()
+        return pd.DataFrame(all_rows)
 
-if search_term:
-    df_filtered = df[df.apply(lambda row: row.astype(str).str.lower().str.contains(search_term).any(), axis=1)]
-    st.write(f"✅ Found {len(df_filtered)} results")
-    st.dataframe(df_filtered)
-    st.download_button("📥 Download", df_filtered.to_csv(index=False), "filtered_leads.csv")
-else:
-    st.write("Enter a keyword to search.")
+    st.title("🔎 Lead Filter by Location or Keyword")
+    search_term = st.text_input("Enter a location or keyword (e.g., 'Dallas', 'Texas')").strip().lower()
+    df = load_data()
+
+    if search_term:
+        filtered_df = df[
+            df['location'].astype(str).str.lower().str.contains(search_term, na=False) |
+            df['route_inquired'].astype(str).str.lower().str.contains(search_term, na=False) |
+            df['tags'].astype(str).str.lower().str.contains(search_term, na=False) |
+            df['state'].astype(str).str.lower().str.contains(search_term, na=False) |
+            df['state1'].astype(str).str.lower().str.contains(search_term, na=False) |
+            df['state2'].astype(str).str.lower().str.contains(search_term, na=False)
+        ]
+        st.write(f"### ✅ Found {len(filtered_df)} matching contacts")
+        st.dataframe(filtered_df)
+
+        csv = filtered_df.to_csv(index=False).encode("utf-8")
+        st.download_button("📥 Download Filtered CSV", data=csv, file_name="filtered_leads.csv", mime="text/csv")
+    else:
+        st.write("Enter a keyword to begin filtering the lead database.")
+
+elif authentication_status is False:
+    st.error("Login failed. Please check your username and password.")
+
+elif authentication_status is None:
+    st.warning("Please enter your credentials.")
