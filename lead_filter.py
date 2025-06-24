@@ -3,7 +3,7 @@ import pandas as pd
 from supabase import create_client
 
 SUPABASE_URL = "https://jrplwchamgzjmjmmkpoj.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpycGx3Y2hhbWd6am1qbW1rcG9qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA2MDE4MzksImV4cCI6MjA2NjE3NzgzOX0.2cDqlLvZmcCNsd4-o01fXQd3f5wNZWy6lhDKLx82mtg"  # Use anon key for frontend
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpycGx3Y2hhbWd6am1qbW1rcG9qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDYwMTgzOSwiZXhwIjoyMDY2MTc3ODM5fQ.jWQMWrd1TAqmfT9vKqKzNdapdFblxW_t5Yp25E3LyZ0"  # Use anon key for frontend
 TABLE_NAME = "master_contacts"
 
 @st.cache_data(ttl=60)  # Re-fetch every 60 seconds
