@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import copy
+users = copy.deepcopy(st.secrets["credentials"])
 from supabase import create_client, Client
 from streamlit_authenticator import Authenticate
 
