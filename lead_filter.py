@@ -3,12 +3,12 @@ import pandas as pd
 from supabase import create_client, Client
 
 # --- CONFIG ---
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_KEY = st.secrets["SUPABASE_ANON_KEY"]
+SUPABASE_URL = "https://jrplwchamgzjmjmmkpoj.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpycGx3Y2hhbWd6am1qbW1rcG9qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDYwMTgzOSwiZXhwIjoyMDY2MTc3ODM5fQ.jWQMWrd1TAqmfT9vKqKzNdapdFblxW_t5Yp25E3LyZ0"
 TABLE_NAME = "master_contacts"
 
-# --- SUPABASE LOAD ---
-@st.cache_data(show_spinner="Loading data...")
+# --- CONNECT + LOAD ---
+@st.cache_data(show_spinner="Loading full dataset...")
 def load_data():
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
@@ -19,8 +19,10 @@ def load_data():
     while True:
         response = supabase.table(TABLE_NAME).select("*").range(offset, offset + batch_size - 1).execute()
         batch = response.data
+
         if not batch:
             break
+
         all_rows.extend(batch)
         offset += batch_size
 
@@ -28,7 +30,8 @@ def load_data():
 
 # --- UI ---
 st.title("🔎 Lead Filter by Location or Keyword")
-search_term = st.text_input("Enter a location or keyword").strip().lower()
+
+search_term = st.text_input("Enter a location or keyword (e.g., 'Dallas', 'Texas')").strip().lower()
 df = load_data()
 
 if search_term:
