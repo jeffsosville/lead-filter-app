@@ -8,25 +8,25 @@ SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_ANON_KEY"]
 TABLE_NAME = "master_contacts"
 
-# --- USER CREDENTIALS ---
+# --- USER CREDENTIALS (flattened access for TOML) ---
 users = {
     "usernames": {
         "jeff": {
-            "name": st.secrets["credentials"]["usernames"]["jeff"]["name"],
-            "password": st.secrets["credentials"]["usernames"]["jeff"]["password"]
+            "name": st.secrets["cool_users.jeff"]["name"],
+            "password": st.secrets["cool_users.jeff"]["password"]
         },
         "team": {
-            "name": st.secrets["credentials"]["usernames"]["team"]["name"],
-            "password": st.secrets["credentials"]["usernames"]["team"]["password"]
+            "name": st.secrets["cool_users.team"]["name"],
+            "password": st.secrets["cool_users.team"]["password"]
         }
     }
 }
 
 # --- AUTHENTICATOR ---
 authenticator = Authenticate(
-    users,
-    "my_cookie_name",
-    "my_signature_key",
+    credentials=users,
+    cookie_name="my_cookie_name",
+    key="my_signature_key",
     cookie_expiry_days=1
 )
 
@@ -40,11 +40,9 @@ if authentication_status:
     @st.cache_data(show_spinner="Loading data...")
     def load_data():
         supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
         all_rows = []
         batch_size = 1000
         offset = 0
-
         while True:
             response = supabase.table(TABLE_NAME).select("*").range(offset, offset + batch_size - 1).execute()
             batch = response.data
@@ -52,7 +50,6 @@ if authentication_status:
                 break
             all_rows.extend(batch)
             offset += batch_size
-
         return pd.DataFrame(all_rows)
 
     st.title("🔎 Lead Filter by Location or Keyword")
