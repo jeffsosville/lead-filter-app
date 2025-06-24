@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from supabase import create_client, Client
 from streamlit_authenticator import Authenticate
-import copy
 
 # --- CONFIG ---
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
@@ -10,12 +9,23 @@ SUPABASE_KEY = st.secrets["SUPABASE_ANON_KEY"]
 TABLE_NAME = "master_contacts"
 
 # --- AUTH ---
-users = copy.deepcopy(st.secrets["credentials"])
+users = {
+    "usernames": {
+        "jeff": {
+            "name": st.secrets["credentials.usernames.jeff.name"],
+            "password": st.secrets["credentials.usernames.jeff.password"]
+        },
+        "team": {
+            "name": st.secrets["credentials.usernames.team.name"],
+            "password": st.secrets["credentials.usernames.team.password"]
+        }
+    }
+}
 
 authenticator = Authenticate(
     users,
     "lead_filter_cookie",
-    "some_random_signature_key",
+    "some_signature_key",
     cookie_expiry_days=1
 )
 
@@ -60,6 +70,5 @@ if auth_status:
 
 elif auth_status is False:
     st.error("Login failed. Please check your username and password.")
-
 elif auth_status is None:
     st.warning("Please enter your credentials.")
