@@ -4,35 +4,30 @@ from supabase import create_client, Client
 from streamlit_authenticator import Authenticate
 
 # --- CONFIG ---
-SUPABASE_URL = "https://jrplwchamgzjmjmmkpoj.supabase.co"
-SUPABASE_KEY = st.secrets["SUPABASE_ANON_KEY"]  # safer than hardcoding
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_KEY = st.secrets["SUPABASE_ANON_KEY"]
 TABLE_NAME = "master_contacts"
 
-# --- AUTH CONFIG ---
-import copy
-users = copy.deepcopy(st.secrets["credentials"])
-
+# --- AUTH SETUP ---
+users = st.secrets["credentials"]
 
 authenticator = Authenticate(
-    users,
-    "some_cookie_name",
-    "some_signature_key",
+    credentials=users,
+    cookie_name="lead_filter_login",
+    key="some_signature_key",  # change this to anything long and random
     cookie_expiry_days=1
 )
 
 name, authentication_status, username = authenticator.login("Login", location="main")
 
-
-# --- IF LOGGED IN ---
+# --- MAIN APP LOGIC ---
 if authentication_status:
     st.sidebar.success(f"Welcome, {name}!")
     authenticator.logout("Logout", "sidebar")
 
-    # --- CONNECT + LOAD ---
-    @st.cache_data(show_spinner="Loading full dataset...")
+    @st.cache_data(show_spinner="Loading contacts...")
     def load_data():
         supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
         all_rows = []
         batch_size = 1000
         offset = 0
@@ -47,9 +42,10 @@ if authentication_status:
 
         return pd.DataFrame(all_rows)
 
-    st.title("🔎 Lead Filter by Location or Keyword")
-    search_term = st.text_input("Enter a location or keyword (e.g., 'Dallas', 'Texas')").strip().lower()
     df = load_data()
+
+    st.title("🔎 Lead Filter by Location or Keyword")
+    search_term = st.text_input("Search by city, state, tags, etc.").strip().lower()
 
     if search_term:
         filtered_df = df[
@@ -60,16 +56,15 @@ if authentication_status:
             df['state1'].astype(str).str.lower().str.contains(search_term, na=False) |
             df['state2'].astype(str).str.lower().str.contains(search_term, na=False)
         ]
-        st.write(f"### ✅ Found {len(filtered_df)} matching contacts")
+        st.success(f"✅ Found {len(filtered_df)} matching contacts")
         st.dataframe(filtered_df)
 
         csv = filtered_df.to_csv(index=False).encode("utf-8")
         st.download_button("📥 Download Filtered CSV", data=csv, file_name="filtered_leads.csv", mime="text/csv")
     else:
-        st.write("Enter a keyword to begin filtering the lead database.")
+        st.info("Enter a keyword to search the contact database.")
 
 elif authentication_status is False:
     st.error("Login failed. Please check your username and password.")
-
 elif authentication_status is None:
-    st.warning("Please enter your credentials.")
+    st.warning("Please enter your credentials to access the app.")
