@@ -5,7 +5,7 @@ from streamlit_authenticator import Authenticate
 
 # --- CONFIG ---
 SUPABASE_URL = "https://jrplwchamgzjmjmmkpoj.supabase.co"
-SUPABASE_KEY = st.secrets["SUPABASE_KEY = st.secrets["SUPABASE_ANON_KEY"]  # ✅"]  # safer than hardcoding
+SUPABASE_KEY = st.secrets["SUPABASE_ANON_KEY"]  # safer than hardcoding
 TABLE_NAME = "master_contacts"
 
 # --- AUTH CONFIG ---
