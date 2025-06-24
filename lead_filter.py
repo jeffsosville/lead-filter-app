@@ -24,7 +24,6 @@ if auth_status:
     st.sidebar.success(f"Welcome, {name}!")
     authenticator.logout("Logout", "sidebar")
 
-    # --- Load Data ---
     @st.cache_data(show_spinner="Loading...")
     def load_data():
         supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
