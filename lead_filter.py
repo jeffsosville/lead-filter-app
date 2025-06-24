@@ -9,7 +9,8 @@ SUPABASE_KEY = st.secrets["SUPABASE_ANON_KEY"]  # safer than hardcoding
 TABLE_NAME = "master_contacts"
 
 # --- AUTH CONFIG ---
-users = st.secrets["credentials"]
+import copy
+users = copy.deepcopy(st.secrets["credentials"])
 
 
 authenticator = Authenticate(
