@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import copy
 from supabase import create_client, Client
 from streamlit_authenticator import Authenticate
 
