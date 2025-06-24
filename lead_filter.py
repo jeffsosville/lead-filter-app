@@ -7,10 +7,28 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 TABLE_NAME = "master_contacts"
 
 @st.cache_data(ttl=60)  # Re-fetch every 60 seconds
+@st.cache_data(show_spinner="Loading full dataset...")
 def load_data():
-    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-    response = supabase.table(TABLE_NAME).select("*").limit(10000).execute()
-    return pd.DataFrame(response.data)
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+    all_rows = []
+    batch_size = 1000
+    offset = 0
+
+    while True:
+        response = supabase.table(TABLE_NAME)\
+            .select("*")\
+            .range(offset, offset + batch_size - 1)\
+            .execute()
+
+        if not response.data:
+            break
+
+        all_rows.extend(response.data)
+        offset += batch_size
+
+    return pd.DataFrame(all_rows)
+
 
 st.title("🔎 ATM Lead Search")
 search_term = st.text_input("Search by keyword, location, or route").strip().lower()
