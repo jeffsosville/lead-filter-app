@@ -9,18 +9,8 @@ SUPABASE_KEY = st.secrets["SUPABASE_ANON_KEY"]  # safer than hardcoding
 TABLE_NAME = "master_contacts"
 
 # --- AUTH CONFIG ---
-users = {
-    "usernames": {
-        "jeff": {
-            "name": "Jeff Sosville",
-            "password": st.secrets["AUTH_PASSWORD"]  # store securely
-        },
-        "team": {
-            "name": "Team Member",
-            "password": st.secrets["AUTH_PASSWORD_TEAM"]
-        }
-    }
-}
+users = st.secrets["credentials"]
+
 
 authenticator = Authenticate(
     users,
