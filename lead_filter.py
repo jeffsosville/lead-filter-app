@@ -12,15 +12,16 @@ TABLE_NAME = "master_contacts"
 users = {
     "usernames": {
         "jeff": {
-            "name": st.secrets["credentials.usernames.jeff.name"],
-            "password": st.secrets["credentials.usernames.jeff.password"]
+            "name": st.secrets["credentials"]["usernames"]["jeff"]["name"],
+            "password": st.secrets["credentials"]["usernames"]["jeff"]["password"]
         },
         "team": {
-            "name": st.secrets["credentials.usernames.team.name"],
-            "password": st.secrets["credentials.usernames.team.password"]
+            "name": st.secrets["credentials"]["usernames"]["team"]["name"],
+            "password": st.secrets["credentials"]["usernames"]["team"]["password"]
         }
     }
 }
+
 
 authenticator = Authenticate(
     users,
