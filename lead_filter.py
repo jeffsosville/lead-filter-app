@@ -1,6 +1,6 @@
 import streamlit as st
 
-# --- BASIC PASSWORD GATE ---
+# --- SIMPLE PASSWORD PROTECT ---
 PASSWORD = "atmrocks"
 
 if "auth" not in st.session_state:
@@ -10,9 +10,10 @@ if not st.session_state.auth:
     pwd = st.text_input("🔐 Enter password to access", type="password")
     if pwd == PASSWORD:
         st.session_state.auth = True
-        st.experimental_rerun()
+        st.rerun()  # ✅ modern replacement for st.experimental_rerun
     else:
         st.stop()
+
 
 import streamlit as st
 import pandas as pd
