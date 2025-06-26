@@ -1,4 +1,20 @@
 import streamlit as st
+
+# --- BASIC PASSWORD GATE ---
+PASSWORD = "atmrocks"
+
+if "auth" not in st.session_state:
+    st.session_state.auth = False
+
+if not st.session_state.auth:
+    pwd = st.text_input("🔐 Enter password to access", type="password")
+    if pwd == PASSWORD:
+        st.session_state.auth = True
+        st.experimental_rerun()
+    else:
+        st.stop()
+
+import streamlit as st
 import pandas as pd
 from supabase import create_client, Client
 
