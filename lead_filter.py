@@ -14,7 +14,7 @@ st.title("🔎 Lead Filter by Location or Keyword")
 @st.cache_data(ttl=600)
 def load_data():
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-    response = supabase.table(TABLE_NAME).select("*").execute()
+    response = supabase.table("master_contacts").select("*").range(0, 9999).execute()
     if response.data:
         df = pd.DataFrame(response.data)
         df.columns = df.columns.str.strip().str.lower()  # Normalize column names
