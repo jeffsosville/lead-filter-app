@@ -25,31 +25,34 @@ def load_data():
 
 df = load_data()
 
-# --- SEARCH ---
-search_term = st.text_input("Enter a location, state, or keyword (e.g., 'Dallas', 'Texas')").lower()
-
+# --- SAFETY CHECK ---
 if df.empty:
-    st.warning("No data found in Supabase.")
+    st.warning("⚠️ No data found in Supabase.")
+    st.stop()
+
+# --- SEARCH ---
+search_term = st.text_input("Enter a location or keyword (e.g., 'Dallas', 'Texas')").strip().lower()
+
+if search_term:
+    # Only use columns that actually exist
+    possible_cols = ['location', 'state', 'tags', 'message', 'source_url']
+    existing_cols = [col for col in possible_cols if col in df.columns]
+
+    if not existing_cols:
+        st.error("❌ None of the expected search columns exist in the data.")
+        st.write("Available columns in your table:", list(df.columns))
+        st.stop()
+
+    # Build OR filter
+    filters = [df[col].astype(str).str.lower().str.contains(search_term, na=False) for col in existing_cols]
+    combined_filter = filters[0]
+    for f in filters[1:]:
+        combined_filter |= f
+
+    results = df[combined_filter]
+    st.success(f"✅ {len(results)} match(es) found.")
+    st.dataframe(results.sort_values(by="date", ascending=False), use_container_width=True)
+
 else:
-    if search_term:
-        match_cols = ['location', 'state', 'tags', 'message', 'source_url']
-        filters = []
-
-        for col in match_cols:
-            if col in df.columns:
-                filters.append(df[col].astype(str).str.lower().str.contains(search_term, na=False))
-
-        if filters:
-            combined_filter = filters[0]
-            for f in filters[1:]:
-                combined_filter |= f
-
-            filtered = df[combined_filter]
-            st.success(f"✅ Found {len(filtered)} matching leads.")
-            st.dataframe(filtered.sort_values(by="date", ascending=False), use_container_width=True)
-        else:
-            st.error(f"❌ None of the target columns ({', '.join(match_cols)}) were found.")
-            st.write("Available columns:", df.columns.tolist())
-    else:
-        st.info("Please enter a search term to filter leads.")
-        st.dataframe(df.sort_values(by="date", ascending=False), use_container_width=True)
+    st.info("ℹ️ Enter a search term above to begin filtering.")
+    st.dataframe(df.sort_values(by="date", ascending=False), use_container_width=True)
