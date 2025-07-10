@@ -1,67 +1,55 @@
+import os
 import streamlit as st
 import pandas as pd
 from supabase import create_client, Client
-import httpx
-
-# --- SIMPLE PASSWORD PROTECT ---
-PASSWORD = "atmrocks"
-if "auth" not in st.session_state:
-    st.session_state.auth = False
-if not st.session_state.auth:
-    pwd = st.text_input("🔐 Enter password to access", type="password")
-    if pwd == PASSWORD:
-        st.session_state.auth = True
-        st.rerun()
-    else:
-        st.stop()
 
 # --- CONFIG ---
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_KEY = st.secrets["SUPABASE_ANON_KEY"]
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 TABLE_NAME = "master_contacts"
 
-# --- CONNECT + LOAD ---
-@st.cache_data(show_spinner="Loading full dataset...")
-def load_data():
-    try:
-        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-        all_rows = []
-        batch_size = 1000
-        offset = 0
-
-        while True:
-            response = supabase.table(TABLE_NAME).select("*").range(offset, offset + batch_size - 1).execute()
-            batch = response.data
-            if not batch:
-                break
-            all_rows.extend(batch)
-            offset += batch_size
-
-        return pd.DataFrame(all_rows)
-    
-    except httpx.ConnectError:
-        st.error("🚫 Could not connect to Supabase. Check credentials or table availability.")
-        st.stop()
-
-# --- UI ---
+st.set_page_config(page_title="🔎 Lead Filter", layout="wide")
 st.title("🔎 Lead Filter by Location or Keyword")
 
-search_term = st.text_input("Enter a location or keyword (e.g., 'Dallas', 'Texas')").strip().lower()
+# --- CONNECT TO SUPABASE ---
+@st.cache_data(ttl=600)
+def load_data():
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    response = supabase.table(TABLE_NAME).select("*").execute()
+    if response.data:
+        df = pd.DataFrame(response.data)
+        df.columns = df.columns.str.strip().str.lower()  # Normalize column names
+        return df
+    else:
+        return pd.DataFrame()
+
 df = load_data()
 
-if search_term:
-    filtered_df = df[
-        df['location'].astype(str).str.lower().str.contains(search_term, na=False) |
-        df['route_inquired'].astype(str).str.lower().str.contains(search_term, na=False) |
-        df['tags'].astype(str).str.lower().str.contains(search_term, na=False) |
-        df['state'].astype(str).str.lower().str.contains(search_term, na=False) |
-        df['state1'].astype(str).str.lower().str.contains(search_term, na=False) |
-        df['state2'].astype(str).str.lower().str.contains(search_term, na=False)
-    ]
-    st.write(f"### ✅ Found {len(filtered_df)} matching contacts")
-    st.dataframe(filtered_df)
+# --- SEARCH ---
+search_term = st.text_input("Enter a location, state, or keyword (e.g., 'Dallas', 'Texas')").lower()
 
-    csv = filtered_df.to_csv(index=False).encode("utf-8")
-    st.download_button("📥 Download Filtered CSV", data=csv, file_name="filtered_leads.csv", mime="text/csv")
+if df.empty:
+    st.warning("No data found in Supabase.")
 else:
-    st.write("Enter a keyword to begin filtering the lead database.")
+    if search_term:
+        match_cols = ['location', 'state', 'tags', 'message', 'source_url']
+        filters = []
+
+        for col in match_cols:
+            if col in df.columns:
+                filters.append(df[col].astype(str).str.lower().str.contains(search_term, na=False))
+
+        if filters:
+            combined_filter = filters[0]
+            for f in filters[1:]:
+                combined_filter |= f
+
+            filtered = df[combined_filter]
+            st.success(f"✅ Found {len(filtered)} matching leads.")
+            st.dataframe(filtered.sort_values(by="date", ascending=False), use_container_width=True)
+        else:
+            st.error(f"❌ None of the target columns ({', '.join(match_cols)}) were found.")
+            st.write("Available columns:", df.columns.tolist())
+    else:
+        st.info("Please enter a search term to filter leads.")
+        st.dataframe(df.sort_values(by="date", ascending=False), use_container_width=True)
