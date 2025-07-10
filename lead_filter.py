@@ -20,8 +20,8 @@ import pandas as pd
 from supabase import create_client, Client
 
 # --- CONFIG ---
-SUPABASE_URL = "https://jrplwchamgzjmjmmkpoj.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpycGx3Y2hhbWd6am1qbW1rcG9qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDYwMTgzOSwiZXhwIjoyMDY2MTc3ODM5fQ.jWQMWrd1TAqmfT9vKqKzNdapdFblxW_t5Yp25E3LyZ0"
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_KEY = st.secrets["SUPABASE_ANON_KEY"]
 TABLE_NAME = "master_contacts"
 
 # --- CONNECT + LOAD ---
