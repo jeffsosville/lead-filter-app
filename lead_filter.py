@@ -1,57 +1,60 @@
 import streamlit as st
 import pandas as pd
 from supabase import create_client, Client
+import os
 
-# --- CONFIG ---
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+# --- LOAD FROM SECRETS ---
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 TABLE_NAME = "master_contacts"
 
-st.set_page_config(page_title="🔎 Lead Filter", layout="wide")
-st.title("🔎 Lead Filter by Location or Keyword")
-
-# --- CONNECT TO SUPABASE ---
-@st.cache_data(ttl=600)
-def load_data():
-    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-    response = supabase.table("master_contacts").select("*").range(0, 9999).execute()
-    if response.data:
-        df = pd.DataFrame(response.data)
-        df.columns = df.columns.str.strip().str.lower()  # Normalize column names
-        return df
-    else:
-        return pd.DataFrame()
-
-df = load_data()
-
 # --- SAFETY CHECK ---
-if df.empty:
-    st.warning("⚠️ No data found in Supabase.")
+if not SUPABASE_URL or not SUPABASE_KEY:
+    st.error("❌ Supabase URL or KEY missing in secrets.")
     st.stop()
 
-# --- SEARCH ---
-search_term = st.text_input("Enter a location or keyword (e.g., 'Dallas', 'Texas')").strip().lower()
+# --- CONNECT ---
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-if search_term:
-    # Only use columns that actually exist
-    possible_cols = ['location', 'state', 'tags', 'message', 'source_url']
-    existing_cols = [col for col in possible_cols if col in df.columns]
+# --- PAGINATED LOADER ---
+@st.cache_data(ttl=600)
+def load_all_rows(table_name, batch_size=1000):
+    all_data = []
+    start = 0
 
-    if not existing_cols:
-        st.error("❌ None of the expected search columns exist in the data.")
-        st.write("Available columns in your table:", list(df.columns))
-        st.stop()
+    while True:
+        end = start + batch_size - 1
+        response = supabase.table(table_name).select("*").range(start, end).execute()
 
-    # Build OR filter
-    filters = [df[col].astype(str).str.lower().str.contains(search_term, na=False) for col in existing_cols]
-    combined_filter = filters[0]
-    for f in filters[1:]:
-        combined_filter |= f
+        if not response.data:
+            break
 
-    results = df[combined_filter]
-    st.success(f"✅ {len(results)} match(es) found.")
-    st.dataframe(results.sort_values(by="date", ascending=False), use_container_width=True)
+        all_data.extend(response.data)
 
+        if len(response.data) < batch_size:
+            break
+
+        start += batch_size
+
+    df = pd.DataFrame(all_data)
+    df.columns = df.columns.str.strip().str.lower()
+    return df
+
+# --- LOAD DATA ---
+df = load_all_rows(TABLE_NAME)
+
+# --- HANDLE EMPTY ---
+if df.empty:
+    st.warning("No data found in Supabase table.")
+    st.stop()
+
+# --- MAIN UI ---
+st.title("🔎 Lead Filter by Location or Keyword")
+query = st.text_input("Enter a location or keyword (e.g., 'Dallas', 'Texas')")
+
+if query:
+    filtered_df = df[df.apply(lambda row: row.astype(str).str.contains(query, case=False).any(), axis=1)]
+    st.write(f"### Found {len(filtered_df)} matches")
+    st.dataframe(filtered_df)
 else:
-    st.info("ℹ️ Enter a search term above to begin filtering.")
-    st.dataframe(df.sort_values(by="date", ascending=False), use_container_width=True)
+    st.dataframe(df.head(100))  # Show sample if no input
