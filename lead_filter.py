@@ -1,14 +1,10 @@
-import os
 import streamlit as st
 import pandas as pd
 from supabase import create_client, Client
-from dotenv import load_dotenv
-load_dotenv()
-
 
 # --- CONFIG ---
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 TABLE_NAME = "master_contacts"
 
 st.set_page_config(page_title="🔎 Lead Filter", layout="wide")
