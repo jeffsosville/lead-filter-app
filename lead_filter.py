@@ -1,23 +1,19 @@
 import streamlit as st
+import pandas as pd
+from supabase import create_client, Client
+import httpx
 
 # --- SIMPLE PASSWORD PROTECT ---
 PASSWORD = "atmrocks"
-
 if "auth" not in st.session_state:
     st.session_state.auth = False
-
 if not st.session_state.auth:
     pwd = st.text_input("🔐 Enter password to access", type="password")
     if pwd == PASSWORD:
         st.session_state.auth = True
-        st.rerun()  # ✅ modern replacement for st.experimental_rerun
+        st.rerun()
     else:
         st.stop()
-
-
-import streamlit as st
-import pandas as pd
-from supabase import create_client, Client
 
 # --- CONFIG ---
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
@@ -27,23 +23,25 @@ TABLE_NAME = "master_contacts"
 # --- CONNECT + LOAD ---
 @st.cache_data(show_spinner="Loading full dataset...")
 def load_data():
-    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    try:
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        all_rows = []
+        batch_size = 1000
+        offset = 0
 
-    all_rows = []
-    batch_size = 1000
-    offset = 0
+        while True:
+            response = supabase.table(TABLE_NAME).select("*").range(offset, offset + batch_size - 1).execute()
+            batch = response.data
+            if not batch:
+                break
+            all_rows.extend(batch)
+            offset += batch_size
 
-    while True:
-        response = supabase.table(TABLE_NAME).select("*").range(offset, offset + batch_size - 1).execute()
-        batch = response.data
-
-        if not batch:
-            break
-
-        all_rows.extend(batch)
-        offset += batch_size
-
-    return pd.DataFrame(all_rows)
+        return pd.DataFrame(all_rows)
+    
+    except httpx.ConnectError:
+        st.error("🚫 Could not connect to Supabase. Check credentials or table availability.")
+        st.stop()
 
 # --- UI ---
 st.title("🔎 Lead Filter by Location or Keyword")
